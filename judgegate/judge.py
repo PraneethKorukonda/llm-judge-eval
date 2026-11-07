@@ -21,7 +21,7 @@ SYSTEM = (
     "depth, creativity and level of detail. Do not let the order of the responses, their length or the "
     "names of the assistants influence your decision. Be as objective as possible. After a short "
     'explanation, output your final verdict strictly in this format: "[[A]]" if assistant A is better, '
-    '"[[B]]" if assistant B is better, and "[[C]]" for a tie.'
+    '"[[B]]" if assistant B is better, and "[[C]]" for a tie. Keep your explanation under 100 words.'
 )
 
 TEMPLATE = (
@@ -31,10 +31,11 @@ TEMPLATE = (
 )
 
 _VERDICT = re.compile(r"\[\[(A|B|C)\]\]")
+_LOOSE = re.compile(r"\[\s*(A|B|C)\s*\]")
 
 
 def parse_verdict(text: str) -> str | None:
-    hits = _VERDICT.findall(text or "")
+    hits = _VERDICT.findall(text or "") or _LOOSE.findall(text or "")
     if not hits:
         return None
     return {"A": "A", "B": "B", "C": "tie"}[hits[-1]]
@@ -44,7 +45,7 @@ def _call_anthropic(model: str, prompt: str) -> str:
     import anthropic
 
     client = anthropic.Anthropic()
-    msg = client.messages.create(model=model, max_tokens=600, temperature=0, system=SYSTEM,
+    msg = client.messages.create(model=model, max_tokens=1024, system=SYSTEM,
                                  messages=[{"role": "user", "content": prompt}])
     return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
 
@@ -53,7 +54,7 @@ def _call_openai(model: str, prompt: str) -> str:
     from openai import OpenAI
 
     client = OpenAI()
-    r = client.chat.completions.create(model=model, temperature=0, max_tokens=600,
+    r = client.chat.completions.create(model=model, temperature=0, max_tokens=1024,
                                        messages=[{"role": "system", "content": SYSTEM},
                                                  {"role": "user", "content": prompt}])
     return r.choices[0].message.content
@@ -64,6 +65,8 @@ def call_judge(provider: str, model: str, prompt: str, retries: int = 4) -> str:
     for i in range(retries):
         try:
             return fn(model, prompt)
+        except TypeError:
+            raise  # a code bug, not worth retrying
         except Exception as e:  # rate limits, timeouts
             if i == retries - 1:
                 raise
@@ -84,7 +87,8 @@ def run_judge(pairs: pd.DataFrame, provider: str, model: str, cache: Path) -> pd
         with open(cache) as f:
             for line in f:
                 r = json.loads(line)
-                done[(r["pair_id"], r["order"])] = r
+                if r["verdict"] is not None:
+                    done[(r["pair_id"], r["order"])] = r
 
     flip = {"A": "B", "B": "A", "tie": "tie", None: None}
     with open(cache, "a") as out:
@@ -105,8 +109,8 @@ def run_judge(pairs: pd.DataFrame, provider: str, model: str, cache: Path) -> pd
                 print(f"judged {i + 1}/{len(pairs)} pairs")
 
     res = pairs.copy()
-    res["judge_ab"] = [done[(pid, "ab")]["verdict"] for pid in res["pair_id"]]
-    res["judge_ba"] = [done[(pid, "ba")]["verdict"] for pid in res["pair_id"]]
+    res["judge_ab"] = [done.get((pid, "ab"), {}).get("verdict") for pid in res["pair_id"]]
+    res["judge_ba"] = [done.get((pid, "ba"), {}).get("verdict") for pid in res["pair_id"]]
     return res
 
 

@@ -29,9 +29,7 @@ from judgegate.metrics import add_lengths, kappa_ci  # noqa: E402
 def sample_pairs(pairs: pd.DataFrame, n: int, seed: int) -> pd.DataFrame:
     """Same number of pairs from each category, so no category is starved."""
     per_cat = max(1, n // pairs["category"].nunique())
-    return (pairs.groupby("category", group_keys=False)
-                 .apply(lambda g: g.sample(min(len(g), per_cat), random_state=seed))
-                 .reset_index(drop=True))
+    return pairs.sample(frac=1, random_state=seed).groupby("category").head(per_cat).reset_index(drop=True)
 
 
 def main() -> None:
@@ -70,7 +68,7 @@ def main() -> None:
         table[cols].round(3).to_markdown(index=False),
         "\n## Interval check\n",
         f"Kappa 90% interval, resampling questions: {c_lo:.3f} to {c_hi:.3f}  ",
-        f"Kappa 90% interval, resampling pairs (too narrow): {p_lo:.3f} to {p_hi:.3f}\n",
+        f"Kappa 90% interval, resampling pairs (naive): {p_lo:.3f} to {p_hi:.3f}\n",
     ]
     (out / f"report_{tag}.md").write_text("\n".join(report))
     print("\n".join(report))

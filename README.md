@@ -65,15 +65,39 @@ Results land in `results/report_<model>.md` and `results/judged_<model>.csv`.
 
 ## Results on real data
 
-_Fill in after the run._
+Judge: Claude Haiku (`claude-haiku-5-5`), 400 MT-Bench turn-1 answer pairs sampled evenly across the
+8 categories, each judged in both orders. 386 pairs kept (14 had no readable verdict).
+Human labels are the majority vote of the expert raters on each pair.
 
-| Category | Verdict | Kappa (90% CI) | Position consistency | Length bias |
+| Category | Verdict | Kappa (90% CI) | Agreement when both pick a winner | Position consistency |
 |---|---|---|---|---|
-| ALL | | | | |
+| ALL | KEEP HUMANS | 0.48 (0.42–0.54) | 88% | 89% |
+| math | **TRUST JUDGE** | 0.76 (0.65–0.85) | 94% | 86% |
+| extraction | KEEP HUMANS | 0.59 (0.34–0.79) | 97% | 94% |
+| stem | KEEP HUMANS | 0.49 (0.30–0.64) | 89% | 94% |
+| writing | KEEP HUMANS | 0.45 (0.35–0.53) | 93% | 77% |
+| coding | KEEP HUMANS | 0.45 (0.25–0.65) | 83% | 89% |
+| reasoning | KEEP HUMANS | 0.43 (0.20–0.60) | 100% | 85% |
+| humanities | KEEP HUMANS | 0.31 (0.20–0.46) | 79% | 98% |
+| roleplay | KEEP HUMANS | 0.27 (0.10–0.46) | 76% | 92% |
 
-Findings:
-- 
-- 
+What I take from it:
+
+- **Most disagreement is about ties, not winners.** When humans and the judge both pick a
+  winner they agree 88% of the time, but kappa is only 0.48 because they disagree on when two
+  answers are about equally good.
+- **Math is the only category the judge can be trusted on.** Its lower bound (0.65) clears the
+  0.60 bar. Subjective categories like roleplay and humanities are the weakest.
+- **No overall length bias.** The judge picked the longer answer about as often as humans did
+  (−0.8 points). Per-category numbers move around but rest on about 50 pairs each.
+- **Order changes the verdict on 11% of pairs** (23% in writing), usually from a winner to a tie.
+  Outright flips to the other answer were rare, too rare to claim a position bias.
+- **Clustering mattered less here than in simulation.** The question-level interval
+  (0.415–0.542) was only slightly wider than the pair-level one (0.418–0.533), so pairs from the
+  same question were not strongly correlated in this sample.
+
+Next: compare against human-to-human agreement on pairs with several raters, so the trust bar
+is set relative to how much people agree with each other rather than a fixed 0.60.
 
 ## Layout
 
